@@ -25,6 +25,25 @@ connectDB();
 
 app.use(cors({ origin: "*" }));
 
+// ── Request logger ────────────────────────────────────────
+// Shows every incoming request in Railway logs so we can see
+// whether the APK is hitting the backend at all
+app.use((req, res, next) => {
+  const start = Date.now();
+  const ua = req.headers["user-agent"] || "unknown";
+  const isExpo = ua.includes("Expo") || ua.includes("okhttp");
+  console.log(
+    `→ ${req.method} ${req.originalUrl} [${isExpo ? "EXPO/APP" : "other"}] ip=${
+      req.ip
+    }`
+  );
+  res.on("finish", () => {
+    const ms = Date.now() - start;
+    console.log(`← ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms`);
+  });
+  next();
+});
+
 // IMPORTANT: Raw body for Razorpay webhook must come BEFORE express.json()
 // Same pattern as RevenueCat webhook in VedicFind — signature verification
 // requires the raw buffer, not the parsed JSON.
@@ -56,7 +75,9 @@ if (process.env.NODE_ENV !== "production") {
 
 // 404 handler
 app.use((req, res) =>
-  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` })
+  res
+    .status(404)
+    .json({ success: false, message: `Route ${req.originalUrl} not found` })
 );
 
 // Global error handler
